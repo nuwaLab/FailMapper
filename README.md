@@ -1,29 +1,28 @@
-# FailMapper: Failure-Aware Monte Carlo Bug Detection Architecture
+# FailMapper: Automated Generation of Unit Tests Guided by Failure Scenarios
 
 ## Installation
 
 ### Prerequisites
-- Python 3.7 or higher
-- Java 8 or higher (for running tests)
-- Maven or Gradle (for Java project build)
-- Junit5
-- Jacoco 0.8.8
+- Python 3.8 or higher
+- Java 8 or higher (for target projects)
+- Maven or Gradle (depending on your project)
 
-### Install Dependencies
+### Setup
+1. Clone the repository:
+```bash
+git clone <repository-url>
+cd FailMapper
+```
 
-#### Option 1: Full Installation (Recommended)
+2. Install Python dependencies:
 ```bash
 pip install -r requirements.txt
 ```
 
-#### Option 2: Minimal Installation
+3. Configure your LLM provider (set API keys as environment variables):
 ```bash
-pip install -r requirements-minimal.txt
-```
-
-#### Option 3: Manual Installation
-```bash
-pip install javalang numpy pandas requests anthropic typing-extensions
+export ANTHROPIC_API_KEY="your-claude-api-key"
+# or other supported providers
 ```
 
 
@@ -84,30 +83,7 @@ Input: Java Project → [Static Analysis] → [Prompt Generation] → [Failure-A
 - Employs intelligent strategy selection based on code patterns
 - Provides real-time bug verification and classification
 
-## Installation
 
-### Prerequisites
-- Python 3.8 or higher
-- Java 8 or higher (for target projects)
-- Maven or Gradle (depending on your project)
-
-### Setup
-1. Clone the repository:
-```bash
-git clone <repository-url>
-cd FailMapper
-```
-
-2. Install Python dependencies:
-```bash
-pip install -r requirements.txt
-```
-
-3. Configure your LLM provider (set API keys as environment variables):
-```bash
-export ANTHROPIC_API_KEY="your-claude-api-key"
-# or other supported providers
-```
 
 ## Usage
 
@@ -293,6 +269,18 @@ You can override the detection by specifying `--project-type`, recommend for tes
 ## Contributing
 
 We welcome contributions! Please see our contributing guidelines for details on how to submit improvements and bug fixes.
+
+## Citation
+```bash
+@inproceedings{dong2025failmapper,
+  title={FailMapper: Automated Generation of Unit Tests Guided by Failure Scenarios},
+  author={Dong, Ruiqi and Deng, Zehang and Zhu, Xiaogang and Du, Xiaoning and Liu, Huai and Wang, Shaohua and Wen, Sheng and Xiang, Yang},
+  booktitle={2025 40th IEEE/ACM International Conference on Automated Software Engineering (ASE)},
+  pages={2388--2400},
+  year={2025},
+  organization={IEEE}
+}
+```
 
 <!-- ## License
 
