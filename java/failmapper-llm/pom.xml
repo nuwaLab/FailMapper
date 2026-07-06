@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>org.failmapper</groupId>
+    <artifactId>failmapper-parent</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+  </parent>
+
+  <artifactId>failmapper-llm</artifactId>
+  <name>FailMapper LLM</name>
+  <description>LLM client layer. Currently: OpenAI-compatible DeepSeek client + code extraction + an end-to-end smoke harness. The contract prompt templates (port register 3.6) are NOT here yet — that is milestone M4.</description>
+
+  <dependencies>
+    <dependency>
+      <groupId>org.failmapper</groupId>
+      <artifactId>failmapper-core</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.failmapper</groupId>
+      <artifactId>failmapper-analysis</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-databind</artifactId>
+    </dependency>
+  </dependencies>
+</project>

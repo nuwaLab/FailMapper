@@ -12,6 +12,7 @@ import com.github.javaparser.ast.expr.BinaryExpr;
 import com.github.javaparser.ast.expr.EnclosedExpr;
 import com.github.javaparser.ast.expr.Expression;
 import com.github.javaparser.ast.expr.SwitchExpr;
+import com.github.javaparser.ast.expr.UnaryExpr;
 import com.github.javaparser.ast.stmt.DoStmt;
 import com.github.javaparser.ast.stmt.ForEachStmt;
 import com.github.javaparser.ast.stmt.ForStmt;
@@ -248,11 +249,24 @@ public final class FailureModelExtractor {
      * extractor.py inspects only the top-level BinaryOperation, never nested operands;
      * redundant enclosing parentheses are transparent (javalang built the expression tree
      * without paren nodes, so JavaParser's EnclosedExpr wrappers are unwrapped here).
+     *
+     * <p>Prefix unary operators are transparent too: javalang stores them as a
+     * {@code prefix_operators} ATTRIBUTE on the operand node rather than as a node of their
+     * own, so extractor.py's {@code isinstance(condition, BinaryOperation)} check sees
+     * straight through negation — {@code !(a || b)} counts as a {@code ||} operation and
+     * {@code !(a == b)} as a {@code ==} comparison (Layer B alignment: DefaultParser.java:526,
+     * Parser.java:295). JavaParser's UnaryExpr wrappers must be unwrapped to match.
      */
     private static Optional<String> topLevelOperator(Expression condition, boolean includeComparisons) {
         Expression expression = condition;
-        while (expression instanceof EnclosedExpr enclosed) {
-            expression = enclosed.getInner();
+        while (true) {
+            if (expression instanceof EnclosedExpr enclosed) {
+                expression = enclosed.getInner();
+            } else if (expression instanceof UnaryExpr unary && unary.getOperator().isPrefix()) {
+                expression = unary.getExpression();
+            } else {
+                break;
+            }
         }
         if (expression instanceof BinaryExpr binary) {
             BinaryExpr.Operator operator = binary.getOperator();

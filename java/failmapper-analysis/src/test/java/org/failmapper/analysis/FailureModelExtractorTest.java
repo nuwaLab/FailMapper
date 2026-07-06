@@ -202,6 +202,38 @@ class FailureModelExtractorTest {
     }
 
     @Test
+    void prefixNegationIsTransparentForTopLevelOperatorExtraction() {
+        // javalang stores prefix '!' as a prefix_operators ATTRIBUTE on the operand node, so
+        // extractor.py's top-level BinaryOperation check sees straight through negation:
+        // !(a || b) counts as ||, and !(a == b) as == (if-conditions only). Found during
+        // Layer B alignment on commons-cli (DefaultParser.java:526, Parser.java:295).
+        String source = """
+                package fx;
+                public class Negated {
+                    void m(String value, int a, int b) {
+                        if (!("yes".equalsIgnoreCase(value) || "true".equalsIgnoreCase(value))) {
+                            return;
+                        }
+                        if (!(a == b)) {
+                            return;
+                        }
+                        while (!(a < b || a > b)) {
+                            a++;
+                        }
+                    }
+                }
+                """;
+        FailureModel model = extractor.extract(source, "fx.Negated");
+
+        assertThat(model.operations())
+                .extracting(o -> o.operators().get(0), LogicalOperation::line)
+                .containsExactly(
+                        org.assertj.core.groups.Tuple.tuple("||", 4),
+                        org.assertj.core.groups.Tuple.tuple("==", 7),
+                        org.assertj.core.groups.Tuple.tuple("||", 10));
+    }
+
+    @Test
     void methodComplexityMatchesContractF11() {
         FailureModel model = extractor.extract(SAMPLE, "fx.Sample");
 
