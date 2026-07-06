@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>org.failmapper</groupId>
+    <artifactId>failmapper-parent</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+  </parent>
+
+  <artifactId>failmapper-build</artifactId>
+  <name>FailMapper Build</name>
+  <description>Build-system oracle: effective Maven models (maven-model-builder) + transitive test classpaths (Maven Resolver) + Gradle Tooling API. Replaces the Python port's regex pom parsing (dependency_analyzer.py). Never mutates user build files; never scrapes console text.</description>
+
+  <properties>
+    <maven.core.version>3.9.9</maven.core.version>
+    <maven.resolver.version>1.9.18</maven.resolver.version>
+    <gradle.tooling.version>8.14.4</gradle.tooling.version>
+  </properties>
+
+  <!-- gradle-tooling-api is only published to Gradle's own repository.
+       Scoped to THIS module deliberately (contract: no repository changes leak to other modules). -->
+  <repositories>
+    <repository>
+      <id>gradle-libs-releases</id>
+      <url>https://repo.gradle.org/gradle/libs-releases</url>
+      <releases><enabled>true</enabled></releases>
+      <snapshots><enabled>false</enabled></snapshots>
+    </repository>
+  </repositories>
+
+  <dependencies>
+    <dependency>
+      <groupId>org.failmapper</groupId>
+      <artifactId>failmapper-core</artifactId>
+    </dependency>
+
+    <!-- Effective POM building: parents, properties interpolation, dependencyManagement/BOM imports. -->
+    <dependency>
+      <groupId>org.apache.maven</groupId>
+      <artifactId>maven-model-builder</artifactId>
+      <version>${maven.core.version}</version>
+    </dependency>
+
+    <!-- Transitive dependency resolution (aether): MavenRepositorySystemUtils + descriptor readers. -->
+    <dependency>
+      <groupId>org.apache.maven</groupId>
+      <artifactId>maven-resolver-provider</artifactId>
+      <version>${maven.core.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.maven.resolver</groupId>
+      <artifactId>maven-resolver-connector-basic</artifactId>
+      <version>${maven.resolver.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.maven.resolver</groupId>
+      <artifactId>maven-resolver-transport-file</artifactId>
+      <version>${maven.resolver.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.maven.resolver</groupId>
+      <artifactId>maven-resolver-transport-http</artifactId>
+      <version>${maven.resolver.version}</version>
+    </dependency>
+
+    <!-- Gradle build oracle. -->
+    <dependency>
+      <groupId>org.gradle</groupId>
+      <artifactId>gradle-tooling-api</artifactId>
+      <version>${gradle.tooling.version}</version>
+    </dependency>
+
+    <!-- Silence SLF4J "no binding" noise from resolver/tooling-api during tests. -->
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-nop</artifactId>
+      <version>1.7.36</version>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+</project>

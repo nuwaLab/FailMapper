@@ -25,6 +25,21 @@
       <version>${project.version}</version>
     </dependency>
     <dependency>
+      <groupId>org.failmapper</groupId>
+      <artifactId>failmapper-build</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.failmapper</groupId>
+      <artifactId>failmapper-exec</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.failmapper</groupId>
+      <artifactId>failmapper-coverage</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
       <groupId>com.fasterxml.jackson.core</groupId>
       <artifactId>jackson-databind</artifactId>
     </dependency>

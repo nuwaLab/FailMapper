@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>org.failmapper</groupId>
+    <artifactId>failmapper-parent</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+  </parent>
+
+  <artifactId>failmapper-exec</artifactId>
+  <name>FailMapper Exec</name>
+  <description>Test execution: javax.tools in-memory compilation (structured Diagnostics, no console scraping) + forked JUnit Platform Launcher runs with hard timeouts (typed AssertionError classification, no text matching). Never blocks without a timeout; never touches a user project's src/ tree.</description>
+
+  <dependencies>
+    <dependency>
+      <groupId>org.failmapper</groupId>
+      <artifactId>failmapper-core</artifactId>
+    </dependency>
+
+    <!-- TestRunnerMain serializes TestRunResult to the result file; ForkedTestRunner reads it back. -->
+    <dependency>
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-databind</artifactId>
+    </dependency>
+
+    <!-- Compile scope: TestRunnerMain (which runs INSIDE the fork) drives the JUnit Platform Launcher. -->
+    <dependency>
+      <groupId>org.junit.platform</groupId>
+      <artifactId>junit-platform-launcher</artifactId>
+      <scope>compile</scope>
+    </dependency>
+    <!-- Runtime scope: the forked JVM needs a test engine on its classpath to actually run
+         @Test methods; declaring it here makes any consumer's classpath (and hence
+         ForkClasspath.currentModuleClasspath()) self-contained. -->
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter-engine</artifactId>
+      <scope>runtime</scope>
+    </dependency>
+  </dependencies>
+</project>

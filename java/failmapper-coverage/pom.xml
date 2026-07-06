@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>org.failmapper</groupId>
+    <artifactId>failmapper-parent</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+  </parent>
+
+  <artifactId>failmapper-coverage</artifactId>
+  <name>FailMapper Coverage</name>
+  <description>Coverage: JaCoCo agent injection into forked test JVMs (-javaagent, never mutating a user project's build files) + exec-file analysis via the JaCoCo core API with EXACT FQN class attribution (replaces the Python port's report scraping and substring class matching).</description>
+
+  <properties>
+    <jacoco.version>0.8.12</jacoco.version>
+  </properties>
+
+  <dependencies>
+    <dependency>
+      <groupId>org.failmapper</groupId>
+      <artifactId>failmapper-core</artifactId>
+    </dependency>
+
+    <!-- ExecFileLoader + Analyzer/CoverageBuilder (structured coverage facts, no report parsing). -->
+    <dependency>
+      <groupId>org.jacoco</groupId>
+      <artifactId>org.jacoco.core</artifactId>
+      <version>${jacoco.version}</version>
+    </dependency>
+    <!-- The API artifact (no classifier): provides org.jacoco.agent.AgentJar and EMBEDS the
+         runtime agent jar (byte-identical to the classifier "runtime" artifact) as a resource.
+         AgentJar.extractToTempLocation() materializes it for -javaagent, keeping the agent's
+         shaded runtime classes OFF our own classpath. -->
+    <dependency>
+      <groupId>org.jacoco</groupId>
+      <artifactId>org.jacoco.agent</artifactId>
+      <version>${jacoco.version}</version>
+    </dependency>
+
+    <!-- Tests fork real JVM runs through failmapper-exec with the agent attached. -->
+    <dependency>
+      <groupId>org.failmapper</groupId>
+      <artifactId>failmapper-exec</artifactId>
+      <version>${project.version}</version>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+</project>

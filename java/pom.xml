@@ -16,6 +16,9 @@
     <module>failmapper-core</module>
     <module>failmapper-analysis</module>
     <module>failmapper-llm</module>
+    <module>failmapper-build</module>
+    <module>failmapper-exec</module>
+    <module>failmapper-coverage</module>
   </modules>
 
   <properties>
