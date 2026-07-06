@@ -295,6 +295,30 @@ class TestStrategySelector:
                 "Explores random aspects of code for potential issues",
                 weight=0.5,
                 target_bugs=[]
+            ),
+
+            # Strategies used by select_strategies; registered here so
+            # record_strategy_result / get_strategy_statistics can track them
+            LogicTestStrategy(
+                "resource_management",
+                "Resource Management Testing",
+                "Tests acquisition, release and reuse of resources",
+                weight=0.5,
+                target_bugs=["resource_leak", "resource_management", "use_after_close"]
+            ),
+            LogicTestStrategy(
+                "state_transition",
+                "State Transition Testing",
+                "Tests object state changes and transition sequences",
+                weight=0.8,
+                target_bugs=["state_error", "inconsistent_state"]
+            ),
+            LogicTestStrategy(
+                "business_logic",
+                "Business Logic Testing",
+                "Tests semantic intent vs implementation mismatches",
+                weight=0.0,
+                target_bugs=["business_logic_error", "semantic_mismatch"]
             )
         ]
 
@@ -728,18 +752,14 @@ class TestStrategySelector:
         
         # Adjust weights based on covered branch conditions
         if covered_conditions and self.f_model and hasattr(self.f_model, 'boundary_conditions'):
-            # Get uncovered boundary conditions
-            all_conditions = [(cond.get("method", ""), cond.get("line", 0))
-                        for cond in self.f_model.boundary_conditions]
-            covered_condition_tuples = [tuple(cond_id.split("_")) 
-                                    for cond_id in covered_conditions]
-            
             # Count uncovered condition types
             uncovered_if = 0
             uncovered_loops = 0
-            
+
             for cond in self.f_model.boundary_conditions:
-                condition_id = f"{cond.get('method', '')}_b{cond.get('line', 0)}"
+                # Must match the "{method}_{line}" format used by
+                # test_state.track_branch_condition_coverage
+                condition_id = f"{cond.get('method', '')}_{cond.get('line', 0)}"
                 cond_type = cond.get("type", "")
                 
                 if condition_id not in covered_conditions:
@@ -833,8 +853,9 @@ class TestStrategySelector:
         effective_condition (str): Condition ID the strategy was effective for
         """
         if strategy_id not in self.strategies:
+            logger.warning(f"record_strategy_result called with unknown strategy id '{strategy_id}'; result not recorded")
             return
-            
+
         # Update strategy metrics
         strategy = self.strategies[strategy_id]
         strategy.record_usage(bugs_found, coverage_gain)

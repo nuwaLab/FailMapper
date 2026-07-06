@@ -5,7 +5,6 @@ import re
 from file_analyzer import analyze_java_file
 from dependency_analyzer import analyze_java_project
 from indirect_dependency_analyzer import EnhancedJavaDependencyAnalyzer
-from boundary_exception_analyzer import analyze_boundary_and_exception
 
 class SetEncoder(json.JSONEncoder):
     def default(self, obj):

@@ -85,7 +85,7 @@ class FailMapper:
         self.metrics = {
             "classes_processed": 0,
             "bugs_found": 0,
-            "bugs_found": 0,
+            "real_bugs_found": 0,
             "avg_coverage": 0.0,
             "execution_time": 0,
             "bug_patterns": defaultdict(int)
@@ -95,7 +95,7 @@ class FailMapper:
         if verbose:
             logging.getLogger().setLevel(logging.DEBUG)
         
-        logger.info(f"Initialized LAMBDA framework with f_weight={f_weight}, bugs_threshold={bugs_threshold}")
+        logger.info(f"Initialized FailMapper framework with f_weight={f_weight}, bugs_threshold={bugs_threshold}")
     
     def process_class(self, class_name, package_name):
         """
@@ -257,7 +257,7 @@ class FailMapper:
         # update the metrics
         self.metrics["classes_processed"] += 1
         self.metrics["bugs_found"] += len(verified_bugs)
-        self.metrics["bugs_found"] += len(real_bugs)
+        self.metrics["real_bugs_found"] += len(real_bugs)
         self.metrics["avg_coverage"] = ((self.metrics["avg_coverage"] * (self.metrics["classes_processed"] - 1)) + coverage) / self.metrics["classes_processed"]
         
         # generate and save the summary

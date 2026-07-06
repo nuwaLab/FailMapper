@@ -7,14 +7,6 @@ def load_json(file_path):
     with open(file_path, 'r') as file:
         return json.load(file)
 
-def simplify_type(type_str):
-    if isinstance(type_str, str):
-        if "BasicType" in type_str:
-            return re.search(r"name=([\w]+)", type_str).group(1)
-        elif "ReferenceType" in type_str:
-            return re.search(r"name=([\w]+)", type_str).group(1)
-    return type_str
-
 def parse_complex_type(type_str):
     if isinstance(type_str, str):
         return type_str
@@ -324,18 +316,37 @@ def process_project(json_file, output_dir):
     indirect_dependencies_info = data['indirect_dependencies']
     
     os.makedirs(output_dir, exist_ok=True)
-    
+
+    generated_files = {}
     for file_path, file_info in dfg_info.items():
         for class_info in file_info.get('classes', []):
             class_name = class_info['name']
-            package = next((info['package'] for info in dependencies_info['testable_units'].values() if info['class_name'] == class_name), "")
+            # dfg keys are project-relative paths while testable_units store the
+            # analyzed path; prefer the unit from the same source file so that
+            # same-named classes in different packages resolve correctly
+            candidates = [info for info in dependencies_info['testable_units'].values()
+                          if info['class_name'] == class_name]
+            same_file = [info for info in candidates
+                         if info.get('file_path', '') == file_path
+                         or info.get('file_path', '').endswith(os.sep + file_path)]
+            if same_file:
+                package = same_file[0]['package']
+            elif candidates:
+                package = candidates[0]['package']
+            else:
+                package = ""
 
             prompt = generate_prompt(class_info, package, dependencies_info, indirect_dependencies_info)
-            
+
             output_file = os.path.join(output_dir, f"{class_name}_test_prompt.txt")
+            if class_name in generated_files:
+                print(f"WARNING: prompt for class '{class_name}' already generated from "
+                      f"{generated_files[class_name]}; overwriting with {file_path}. "
+                      f"Same-named classes share one prompt file.")
+            generated_files[class_name] = file_path
             with open(output_file, 'w') as f:
                 f.write(prompt)
-            
+
             print(f"Generated test prompt for {package}.{class_name}")
 
 def main():
