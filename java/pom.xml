@@ -19,6 +19,7 @@
     <module>failmapper-build</module>
     <module>failmapper-exec</module>
     <module>failmapper-coverage</module>
+    <module>failmapper-search</module>
   </modules>
 
   <properties>
