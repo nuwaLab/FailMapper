@@ -1,6 +1,7 @@
 package org.failmapper.llm.prompt;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * P10 + P11 — byte-exact ports of the bug-verification prompts in
@@ -17,8 +18,22 @@ import java.util.List;
  *       {@code Method {i+1}} — the numbering the REAL_BUGS response parser
  *       ({@link BatchVerdictParser}) depends on.</li>
  * </ul>
+ *
+ * <p><b>REGISTERED IMPROVEMENT I18</b> (contract §4, spec-grounded verification):
+ * {@link #buildSingleSpecGrounded} renders the UNCHANGED legacy P10 body (Layer-P byte
+ * fidelity preserved — {@code LayerPDifferentialTest} keeps pinning {@link #buildSingle}
+ * against the Python oracle without modification) and APPENDS the
+ * {@link #specGroundedSection} appendix: the target's documented contract
+ * (class + relevant method Javadocs, from {@code JavadocExtractor}) plus a
+ * burden-of-proof instruction block requiring a {@code SPEC_BASIS:} citation for any
+ * REAL BUG verdict. Legacy rendering stays byte-identical; the appendix is
+ * strictly additive.
  */
 public final class VerificationPromptBuilder {
+
+    /** I18 — header line of the spec-grounded appendix. */
+    public static final String SPEC_SECTION_HEADER =
+            "DOCUMENTED CONTRACT (authoritative specification)";
 
     private VerificationPromptBuilder() {
     }
@@ -86,6 +101,68 @@ public final class VerificationPromptBuilder {
                 - 5-6: Moderately confident
                 - 1-4: Significant uncertainty
                 """;
+    }
+
+    /**
+     * I18 — the spec-grounded single-bug prompt: the byte-identical legacy P10 body
+     * ({@link #buildSingle}) plus the {@link #specGroundedSection} appendix.
+     *
+     * @param classJavadoc    plain-text class-level Javadoc, or null when absent
+     * @param methodJavadocs  plain-text Javadocs of the method(s) under test relevant
+     *                        to this bug's test method (insertion-ordered; the caller
+     *                        pre-filters); null/empty falls back to the class doc only
+     */
+    public static String buildSingleSpecGrounded(String className,
+                                                 String sourceCode,
+                                                 String testMethod,
+                                                 String bugType,
+                                                 String severity,
+                                                 String errorMessage,
+                                                 String classJavadoc,
+                                                 Map<String, String> methodJavadocs) {
+        return buildSingle(className, sourceCode, testMethod, bugType, severity, errorMessage)
+                + specGroundedSection(classJavadoc, methodJavadocs);
+    }
+
+    /**
+     * I18 — the spec-grounded appendix: the documented contract followed by the
+     * burden-of-proof rules. Appended verbatim after the legacy P10 body; never
+     * touches the legacy bytes.
+     */
+    public static String specGroundedSection(String classJavadoc,
+                                             Map<String, String> methodJavadocs) {
+        StringBuilder section = new StringBuilder();
+        section.append("""
+
+                ================================================================
+                DOCUMENTED CONTRACT (authoritative specification)
+                ================================================================
+
+                Class documentation:
+                """);
+        section.append(classJavadoc == null || classJavadoc.isBlank()
+                ? "(no class-level Javadoc)"
+                : classJavadoc.strip());
+        section.append("\n\nDocumentation of the method(s) under test:\n");
+        if (methodJavadocs == null || methodJavadocs.isEmpty()) {
+            section.append("(no method-level Javadoc available - judge against the"
+                    + " class documentation above)\n");
+        } else {
+            for (Map.Entry<String, String> entry : methodJavadocs.entrySet()) {
+                section.append('\n').append(entry.getKey()).append(":\n")
+                        .append(entry.getValue().strip()).append('\n');
+            }
+        }
+        section.append("""
+
+                BURDEN OF PROOF (spec-grounded verification rules):
+                - The documented contract above is the ONLY authoritative specification of this class's intended behavior. The test's expectations are claims to be checked against it, never evidence by themselves.
+                - A "REAL BUG" verdict REQUIRES citing which documented statement the implementation violates, or which universally-expected invariant is broken (e.g. a crash or unrelated exception on an input the documentation declares valid).
+                - A test expectation that contradicts the documented contract, or finds no support in it, MUST be judged "FALSE POSITIVE": behavior that is documented and implemented as documented is not a bug, however questionable the design may seem.
+                - Respond in the same VERDICT/CONFIDENCE/REASONING format requested above, with one added line:
+                4. SPEC_BASIS: the documented statement (quoted or closely paraphrased) or the universal invariant that the implementation violates; for a FALSE POSITIVE write "none".
+                """);
+        return section.toString();
     }
 
     /**

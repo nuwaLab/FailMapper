@@ -123,4 +123,35 @@ class FaMctsRunnerHelpersTest {
 
         assertThat(calls.get()).isEqualTo(1);
     }
+
+    // ------------------------------------------------------------------
+    // I18 — FM_LEGACY_VERIFY knob (spec-grounded verification is the default)
+    // ------------------------------------------------------------------
+
+    @Test
+    void legacyVerifyRequestedFollowsSystemPropertyFlag() {
+        String before = System.getProperty("FM_LEGACY_VERIFY");
+        try {
+            System.clearProperty("FM_LEGACY_VERIFY");
+            // Default (no property; env not set in the test JVM): spec-grounded mode.
+            if (System.getenv("FM_LEGACY_VERIFY") == null) {
+                assertThat(FaMctsRunner.legacyVerifyRequested()).isFalse();
+            }
+
+            System.setProperty("FM_LEGACY_VERIFY", "1");
+            assertThat(FaMctsRunner.legacyVerifyRequested()).isTrue();
+
+            System.setProperty("FM_LEGACY_VERIFY", "true");
+            assertThat(FaMctsRunner.legacyVerifyRequested()).isTrue();
+
+            System.setProperty("FM_LEGACY_VERIFY", "0");
+            assertThat(FaMctsRunner.legacyVerifyRequested()).isFalse();
+        } finally {
+            if (before == null) {
+                System.clearProperty("FM_LEGACY_VERIFY");
+            } else {
+                System.setProperty("FM_LEGACY_VERIFY", before);
+            }
+        }
+    }
 }

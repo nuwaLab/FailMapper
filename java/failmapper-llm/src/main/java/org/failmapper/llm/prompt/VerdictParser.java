@@ -42,6 +42,16 @@ public final class VerdictParser {
             "REASONING:(.+?)(?=VERDICT:|CONFIDENCE:|\\z)",
             Pattern.DOTALL | Pattern.UNIX_LINES);
 
+    /**
+     * I18 — the OPTIONAL SPEC_BASIS line appended by the spec-grounded verification
+     * mode (no Python counterpart; the legacy REASONING capture above is untouched,
+     * so in spec-grounded responses the SPEC_BASIS line may also appear inside the
+     * reasoning text — harmless, and legacy parsing stays byte-faithful).
+     */
+    static final Pattern SPEC_BASIS = Pattern.compile(
+            "SPEC_BASIS:(.+?)(?=VERDICT:|CONFIDENCE:|REASONING:|\\z)",
+            Pattern.DOTALL | Pattern.UNIX_LINES);
+
     /** I1 — verdict as an enum instead of stringly-typed matching. */
     public enum VerdictType {
         REAL_BUG,
@@ -54,8 +64,18 @@ public final class VerdictParser {
      *                   0.7 default when no CONFIDENCE line matched
      * @param reasoning  stripped REASONING capture, or the first 500 chars of the
      *                   response when absent; never longer than 500 chars
+     * @param specBasis  I18 — stripped SPEC_BASIS capture (the documented statement a
+     *                   REAL verdict cites), or null when the line is absent; the
+     *                   unsubstantiated-REAL downgrade rule lives in the caller
+     *                   ({@code LlmBugVerifier}), not here
      */
-    public record Verdict(VerdictType verdict, double confidence, String reasoning) {
+    public record Verdict(VerdictType verdict, double confidence, String reasoning,
+                          String specBasis) {
+
+        /** Legacy three-field shape (pre-I18 callers and tests). */
+        public Verdict(VerdictType verdict, double confidence, String reasoning) {
+            this(verdict, confidence, reasoning, null);
+        }
 
         public boolean isRealBug() {
             return verdict == VerdictType.REAL_BUG;
@@ -99,6 +119,21 @@ public final class VerdictParser {
         return Optional.of(new Verdict(
                 isRealBug ? VerdictType.REAL_BUG : VerdictType.FALSE_POSITIVE,
                 confidence,
-                reasoning));
+                reasoning,
+                parseSpecBasis(response)));
+    }
+
+    /**
+     * I18 — extracts the optional SPEC_BASIS field of a spec-grounded response.
+     *
+     * @return the stripped SPEC_BASIS text, or null when no SPEC_BASIS line exists
+     *         (legacy responses); may be empty when the line is present but blank
+     */
+    public static String parseSpecBasis(String response) {
+        if (response == null) {
+            return null;
+        }
+        Matcher matcher = SPEC_BASIS.matcher(response);
+        return matcher.find() ? matcher.group(1).strip() : null;
     }
 }

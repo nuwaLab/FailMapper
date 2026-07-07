@@ -91,6 +91,58 @@ class VerdictParserTest {
     }
 
     // ------------------------------------------------------------------
+    // I18 — optional SPEC_BASIS field (spec-grounded verification mode)
+    // ------------------------------------------------------------------
+
+    @Test
+    void specBasisParsedWhenPresent() {
+        Optional<VerdictParser.Verdict> v = VerdictParser.parse(
+                "VERDICT: REAL BUG\nCONFIDENCE: 9\nREASONING: contract violated.\n"
+                        + "SPEC_BASIS: \"removes the hyphens\" but only one prefix is stripped\n");
+        assertThat(v).isPresent();
+        assertThat(v.get().specBasis())
+                .isEqualTo("\"removes the hyphens\" but only one prefix is stripped");
+        assertThat(VerdictParser.parseSpecBasis(
+                "SPEC_BASIS: no crash on documented-valid input\n"))
+                .isEqualTo("no crash on documented-valid input");
+    }
+
+    @Test
+    void specBasisAbsentYieldsNull() {
+        Optional<VerdictParser.Verdict> v = VerdictParser.parse(
+                "VERDICT: REAL BUG\nCONFIDENCE: 9\nREASONING: legacy-shaped response.\n");
+        assertThat(v).isPresent();
+        assertThat(v.get().specBasis()).isNull();
+        assertThat(VerdictParser.parseSpecBasis("no such line")).isNull();
+        assertThat(VerdictParser.parseSpecBasis(null)).isNull();
+    }
+
+    @Test
+    void specBasisCaptureStopsAtOtherFieldLookaheads() {
+        // SPEC_BASIS appearing before another field must not swallow it.
+        assertThat(VerdictParser.parseSpecBasis(
+                "SPEC_BASIS: the documented default\nREASONING: more text"))
+                .isEqualTo("the documented default");
+        assertThat(VerdictParser.parseSpecBasis(
+                "SPEC_BASIS: cited line\nCONFIDENCE: 8\n"))
+                .isEqualTo("cited line");
+    }
+
+    @Test
+    void blankSpecBasisLineYieldsEmptyStringNotNull() {
+        // Line present but empty: the parser reports "", the downgrade decision
+        // (missing OR empty) belongs to LlmBugVerifier, not here.
+        assertThat(VerdictParser.parseSpecBasis("SPEC_BASIS:\n")).isEmpty();
+    }
+
+    @Test
+    void legacyThreeArgVerdictConstructorDefaultsSpecBasisToNull() {
+        VerdictParser.Verdict v = new VerdictParser.Verdict(
+                VerdictParser.VerdictType.FALSE_POSITIVE, 0.9, "r");
+        assertThat(v.specBasis()).isNull();
+    }
+
+    // ------------------------------------------------------------------
     // batch parsing (verify_bug_with_llm.py:389-457)
     // ------------------------------------------------------------------
 

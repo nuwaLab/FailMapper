@@ -13,6 +13,7 @@ import java.util.stream.Collectors;
 import org.failmapper.analysis.ClassModelExtractor;
 import org.failmapper.analysis.FailureModelExtractor;
 import org.failmapper.analysis.FailureScenarioDetector;
+import org.failmapper.analysis.JavadocExtractor;
 import org.failmapper.analysis.SourceAnalyzer;
 import org.failmapper.analysis.SymbolApiRetriever;
 import org.failmapper.build.MavenBuildOracle;
@@ -52,6 +53,13 @@ import org.failmapper.search.UpdateBestPolicy;
  * <p>Reproducibility knobs (registered improvements): seed → {@link SeededRandomSource}
  * (I9); temperature → {@link DeepSeekClient} constructor (I10); model → env
  * {@code DEEPSEEK_MODEL}, default {@code deepseek-v4-pro}.
+ *
+ * <p>Verification improvements (registered): the target's Javadocs are extracted once
+ * per run ({@link JavadocExtractor}) and passed into {@link LlmBugVerifier} for
+ * spec-grounded verification — ON by default; {@code FM_LEGACY_VERIFY=1} (system
+ * property or env) restores the legacy P10-only prompt for A/B (I18). The verifier
+ * also gets its OWN {@link DeepSeekClient} at temperature 0.0 — generation keeps the
+ * configured 0.7 — plus a per-run signature-level verdict cache (I19).
  *
  * <p>Usage: {@code FaMctsRunner <maven-project-root> <target-class-fqn> <output-dir>
  * [maxIterations=20] [seed=42]}. Requires {@code DEEPSEEK_API_KEY} in the environment.
@@ -125,6 +133,9 @@ public final class FaMctsRunner {
         FailureModel fModel = new FailureModelExtractor().extract(sourceCode, classModel.fqn());
         List<FailureScenario> failures =
                 new FailureScenarioDetector(sourceCode, classModel.fqn(), fModel).detect();
+        // I18 — the documented contract, extracted ONCE per run for the verifier.
+        JavadocExtractor.ClassJavadocs javadocs =
+                new JavadocExtractor().extract(cu, classModel.fqn());
 
         // --- 3. LLM client (I10: temperature from config; model from env) ---
         String model = envModel();
@@ -158,8 +169,16 @@ public final class FaMctsRunner {
         LlmActionApplier applier = new LlmActionApplier(
                 client, pipeline, classModel.simpleName(), sourceCode, promptContent,
                 new SymbolApiRetriever(), classpath, fModel, failures);
-        LlmBugVerifier verifier = new LlmBugVerifier(
-                client, sourceCode, classModel.simpleName());
+        // I19 — the verifier gets its OWN client at temperature 0.0 (deterministic
+        // verdicts); generation above keeps the configured sampling temperature.
+        LlmClient verifierClient = new DeepSeekClient(
+                DeepSeekClient.DEFAULT_BASE_URL, model, requireApiKey(), 0.0, 8192);
+        // I18 — spec-grounded verification by default; FM_LEGACY_VERIFY=1 restores the
+        // legacy P10-only prompt (A/B and contract archaeology).
+        LlmBugVerifier verifier = legacyVerifyRequested()
+                ? new LlmBugVerifier(verifierClient, sourceCode, classModel.simpleName())
+                : new LlmBugVerifier(verifierClient, sourceCode, classModel.simpleName(),
+                        javadocs.classDoc().orElse(null), javadocs.methodDocs());
 
         FaMcts search = new FaMcts(
                 searchConfig,
@@ -288,6 +307,23 @@ public final class FaMctsRunner {
     static String envModel() {
         String model = System.getenv("DEEPSEEK_MODEL");
         return model == null || model.isBlank() ? DeepSeekClient.DEFAULT_MODEL : model;
+    }
+
+    /**
+     * I18 A/B knob: {@code FM_LEGACY_VERIFY=1} (system property first, then env)
+     * restores the legacy P10-only verification prompt; anything else keeps the
+     * default spec-grounded mode.
+     */
+    static boolean legacyVerifyRequested() {
+        String flag = System.getProperty("FM_LEGACY_VERIFY");
+        if (flag == null) {
+            flag = System.getenv("FM_LEGACY_VERIFY");
+        }
+        if (flag == null) {
+            return false;
+        }
+        String normalized = flag.strip();
+        return normalized.equals("1") || normalized.equalsIgnoreCase("true");
     }
 
     private static String requireApiKey() {

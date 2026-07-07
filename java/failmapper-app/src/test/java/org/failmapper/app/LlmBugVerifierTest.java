@@ -178,4 +178,203 @@ class LlmBugVerifierTest {
         assertThat(verifier.verifyBatch(List.of())).isEmpty();
         assertThat(verifier.verifyBatch(null)).isEmpty();
     }
+
+    // ------------------------------------------------------------------
+    // I18 — spec-grounded verification (documented contract + burden of proof)
+    // ------------------------------------------------------------------
+
+    private static LlmBugVerifier specGrounded(LlmClient client) {
+        java.util.LinkedHashMap<String, String> docs = new java.util.LinkedHashMap<>();
+        docs.put("add", "Returns the sum of a and b.\n@return the exact sum");
+        docs.put("unrelated", "Never called by the test.");
+        return new LlmBugVerifier(client, SOURCE, "Calc",
+                "Simple calculator; all operations are exact.", docs);
+    }
+
+    @Test
+    void specGroundedPromptAppendsContractAfterUntouchedLegacyBody() {
+        FakeClient client = new FakeClient();
+        client.reply = "VERDICT: FALSE POSITIVE\nCONFIDENCE: 9\nREASONING: expectation has"
+                + " no support in the documented contract.\nSPEC_BASIS: none\n";
+
+        specGrounded(client).verifyBatch(List.of(
+                method("testAdd", METHOD_CODE, "s1",
+                        bug("testAdd", "assertion_failure", "e", 1))));
+
+        assertThat(client.prompts).hasSize(1);
+        String prompt = client.prompts.get(0);
+        // Legacy P10 body byte-identical, appendix strictly after it.
+        String legacy = org.failmapper.llm.prompt.VerificationPromptBuilder.buildSingle(
+                "Calc", SOURCE, METHOD_CODE, "unknown", "medium", "");
+        assertThat(prompt).startsWith(legacy);
+        assertThat(prompt).contains("DOCUMENTED CONTRACT (authoritative specification)");
+        assertThat(prompt).contains("Simple calculator; all operations are exact.");
+        // Only the method the test calls (add) is carried, not the unrelated one.
+        assertThat(prompt).contains("add:\nReturns the sum of a and b.");
+        assertThat(prompt).doesNotContain("Never called by the test.");
+        assertThat(prompt).contains("SPEC_BASIS:");
+    }
+
+    @Test
+    void specGroundedFallsBackToClassDocWhenNoMethodMatches() {
+        FakeClient client = new FakeClient();
+        client.reply = "VERDICT: FALSE POSITIVE\nCONFIDENCE: 9\nREASONING: fine, documented"
+                + " behavior matches implementation.\nSPEC_BASIS: none\n";
+
+        specGrounded(client).verifyBatch(List.of(
+                method("testOther", "public void testOther() { assertTrue(true); }", "s1",
+                        bug("testOther", "assertion_failure", "e", 1))));
+
+        String prompt = client.prompts.get(0);
+        assertThat(prompt).contains("Simple calculator; all operations are exact.");
+        assertThat(prompt).contains("(no method-level Javadoc available - judge against"
+                + " the class documentation above)");
+    }
+
+    @Test
+    void unsubstantiatedRealVerdictIsDowngraded() {
+        FakeClient client = new FakeClient();
+        // REAL verdict with NO SPEC_BASIS line at all.
+        client.reply = "VERDICT: REAL BUG\nCONFIDENCE: 9\nREASONING: this seems wrong to me"
+                + " even though the documentation says otherwise.";
+
+        List<VerifiedBugMethod> out = specGrounded(client).verifyBatch(List.of(
+                method("testAdd", METHOD_CODE, "s1",
+                        bug("testAdd", "assertion_failure", "e", 1))));
+
+        assertThat(out).hasSize(1);
+        assertThat(out.get(0).isRealBug).isFalse();
+        assertThat(out.get(0).verificationConfidence).isEqualTo(0.5);
+        assertThat(out.get(0).verificationReasoning).startsWith("[unsubstantiated] ");
+        assertThat(out.get(0).verificationReasoning).contains("this seems wrong to me");
+    }
+
+    @Test
+    void emptyOrNoneSpecBasisAlsoDowngradesRealVerdicts() {
+        FakeClient emptyBasis = new FakeClient();
+        emptyBasis.reply = "VERDICT: REAL BUG\nCONFIDENCE: 8\nREASONING: some long enough"
+                + " reasoning text for the length gate.\nSPEC_BASIS:\n";
+        List<VerifiedBugMethod> out1 = specGrounded(emptyBasis).verifyBatch(List.of(
+                method("testAdd", METHOD_CODE, "s1",
+                        bug("testAdd", "assertion_failure", "e", 1))));
+        assertThat(out1.get(0).isRealBug).isFalse();
+        assertThat(out1.get(0).verificationConfidence).isEqualTo(0.5);
+
+        FakeClient noneBasis = new FakeClient();
+        noneBasis.reply = "VERDICT: REAL BUG\nCONFIDENCE: 8\nREASONING: some long enough"
+                + " reasoning text for the length gate.\nSPEC_BASIS: none\n";
+        List<VerifiedBugMethod> out2 = specGrounded(noneBasis).verifyBatch(List.of(
+                method("testAdd", METHOD_CODE, "s2",
+                        bug("testAdd", "assertion_failure", "e", 1))));
+        assertThat(out2.get(0).isRealBug).isFalse();
+        assertThat(out2.get(0).verificationReasoning).startsWith("[unsubstantiated] ");
+    }
+
+    @Test
+    void substantiatedRealVerdictIsKept() {
+        FakeClient client = new FakeClient();
+        client.reply = "VERDICT: REAL BUG\nCONFIDENCE: 9\nREASONING: the Javadoc promises"
+                + " an exact sum but add() truncates.\nSPEC_BASIS: \"@return the exact sum\""
+                + " is violated for these operands\n";
+
+        List<VerifiedBugMethod> out = specGrounded(client).verifyBatch(List.of(
+                method("testAdd", METHOD_CODE, "s1",
+                        bug("testAdd", "assertion_failure", "e", 1))));
+
+        assertThat(out.get(0).isRealBug).isTrue();
+        assertThat(out.get(0).verificationConfidence).isCloseTo(0.9, within(1e-9));
+        assertThat(out.get(0).verificationReasoning).doesNotStartWith("[unsubstantiated]");
+    }
+
+    @Test
+    void falsePositiveVerdictsAreNeverDowngraded() {
+        FakeClient client = new FakeClient();
+        client.reply = "VERDICT: FALSE POSITIVE\nCONFIDENCE: 9\nREASONING: expectation"
+                + " contradicts the documented contract for this input.";
+
+        List<VerifiedBugMethod> out = specGrounded(client).verifyBatch(List.of(
+                method("testAdd", METHOD_CODE, "s1",
+                        bug("testAdd", "assertion_failure", "e", 1))));
+
+        assertThat(out.get(0).isRealBug).isFalse();
+        assertThat(out.get(0).verificationConfidence).isCloseTo(0.9, within(1e-9));
+        assertThat(out.get(0).verificationReasoning).doesNotStartWith("[unsubstantiated]");
+    }
+
+    @Test
+    void legacyModeNeverDowngradesAndNeverAppends() {
+        FakeClient client = new FakeClient();
+        client.reply = "VERDICT: REAL BUG\nCONFIDENCE: 9\nREASONING: legacy responses have"
+                + " no SPEC_BASIS line and must stay untouched.";
+
+        LlmBugVerifier verifier = new LlmBugVerifier(client, SOURCE, "Calc"); // legacy ctor
+        List<VerifiedBugMethod> out = verifier.verifyBatch(List.of(
+                method("testAdd", METHOD_CODE, "s1",
+                        bug("testAdd", "assertion_failure", "e", 1))));
+
+        assertThat(out.get(0).isRealBug).isTrue();
+        assertThat(out.get(0).verificationConfidence).isCloseTo(0.9, within(1e-9));
+        assertThat(client.prompts.get(0)).doesNotContain("DOCUMENTED CONTRACT");
+    }
+
+    // ------------------------------------------------------------------
+    // I19 — per-run signature-level verdict cache
+    // ------------------------------------------------------------------
+
+    @Test
+    void identicalSignatureAcrossBatchesReusesVerdictWithoutSecondCall() {
+        FakeClient client = new FakeClient();
+        client.reply = "VERDICT: REAL BUG\nCONFIDENCE: 8\nREASONING: sum is wrong for these"
+                + " operands per the documented contract.\nSPEC_BASIS: exact-sum clause\n";
+        LlmBugVerifier verifier = specGrounded(client);
+
+        List<VerifiedBugMethod> first = verifier.verifyBatch(List.of(
+                method("testAdd", METHOD_CODE, "same:sig",
+                        bug("testAdd", "assertion_failure", "e1", 1))));
+        List<VerifiedBugMethod> second = verifier.verifyBatch(List.of(
+                method("testAdd", METHOD_CODE, "same:sig",
+                        bug("testAdd", "assertion_failure", "e1", 1))));
+
+        assertThat(client.prompts).hasSize(1); // one LLM call total: cache hit on run 2
+        assertThat(second.get(0).isRealBug).isEqualTo(first.get(0).isRealBug);
+        assertThat(second.get(0).verificationConfidence)
+                .isEqualTo(first.get(0).verificationConfidence);
+        assertThat(second.get(0).verificationReasoning)
+                .isEqualTo(first.get(0).verificationReasoning);
+    }
+
+    @Test
+    void distinctSignaturesStillTriggerSeparateCalls() {
+        FakeClient client = new FakeClient();
+        client.reply = "VERDICT: FALSE POSITIVE\nCONFIDENCE: 9\nREASONING: the expectation"
+                + " has no support in the documented contract.\nSPEC_BASIS: none\n";
+        LlmBugVerifier verifier = specGrounded(client);
+
+        verifier.verifyBatch(List.of(
+                method("testA", METHOD_CODE, "sig:a",
+                        bug("testA", "assertion_failure", "e1", 1))));
+        verifier.verifyBatch(List.of(
+                method("testB", METHOD_CODE, "sig:b",
+                        bug("testB", "assertion_failure", "e2", 2))));
+
+        assertThat(client.prompts).hasSize(2);
+    }
+
+    @Test
+    void cacheWorksInLegacyModeToo() {
+        FakeClient client = new FakeClient();
+        client.reply = "VERDICT: REAL BUG\nCONFIDENCE: 8\nREASONING: consistent verdicts"
+                + " for identical signatures within one run.";
+        LlmBugVerifier verifier = new LlmBugVerifier(client, SOURCE, "Calc");
+
+        verifier.verifyBatch(List.of(
+                method("testAdd", METHOD_CODE, "same:sig",
+                        bug("testAdd", "assertion_failure", "e1", 1))));
+        List<VerifiedBugMethod> second = verifier.verifyBatch(List.of(
+                method("testAdd", METHOD_CODE, "same:sig",
+                        bug("testAdd", "assertion_failure", "e1", 1))));
+
+        assertThat(client.prompts).hasSize(1);
+        assertThat(second.get(0).isRealBug).isTrue();
+    }
 }
