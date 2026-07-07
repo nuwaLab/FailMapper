@@ -20,7 +20,7 @@ case; Python's random module is seeded anyway for the CASE-PARAMETER sampling so
 fixture file itself is reproducible.
 
 Regen:
-    cd /Users/ruiqidong/Desktop/FailMapper
+    cd /Users/ruiqidong/Desktop/FailMapper/python-baseline
     python3 <this file> [output.json]
 """
 
@@ -30,7 +30,7 @@ import random
 import sys
 from types import SimpleNamespace
 
-sys.path.insert(0, "/Users/ruiqidong/Desktop/FailMapper")
+sys.path.insert(0, "/Users/ruiqidong/Desktop/FailMapper/python-baseline")
 
 logging.disable(logging.CRITICAL)  # silence the modules' INFO chatter
 
