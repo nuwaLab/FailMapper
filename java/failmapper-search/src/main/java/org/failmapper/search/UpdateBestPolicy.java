@@ -1,8 +1,8 @@
 package org.failmapper.search;
 
-import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.util.LinkedHashMap;
+
+import org.failmapper.core.util.PyFormat;
 
 /**
  * D14 — port of the best-test update rules of {@code update_best_tests}
@@ -112,10 +112,10 @@ public final class UpdateBestPolicy {
 
     /**
      * {@code f"{coverage:.2f}".replace(".", "_")} ({@code fa_mcts.py:2233}) with Python's
-     * half-even rounding of the exact binary double (I12/N7/N8).
+     * half-even rounding of the exact binary double (I12/N7/N8), via the shared
+     * {@link PyFormat#f2} helper used by every prompt-embedded {@code :.2f} site.
      */
     public static String coverageKey(double coverage) {
-        return new BigDecimal(coverage).setScale(2, RoundingMode.HALF_EVEN)
-                .toPlainString().replace(".", "_");
+        return PyFormat.f2(coverage).replace(".", "_");
     }
 }

@@ -10,9 +10,9 @@
     <version>0.1.0-SNAPSHOT</version>
   </parent>
 
-  <artifactId>failmapper-llm</artifactId>
-  <name>FailMapper LLM</name>
-  <description>LLM layer: OpenAI-compatible DeepSeek client, code extraction, LlmMetrics (feedback.py counters), and the search-loop-critical prompt templates of contract register 3.6 (P1/P2/P3+I7/P7/P10/P11/P12) with byte fidelity pinned by the Layer-P differential (src/test/resources/layerp).</description>
+  <artifactId>failmapper-app</artifactId>
+  <name>FailMapper App</name>
+  <description>End-to-end FA-MCTS pipeline (milestone M4): composes ALL modules — build oracle → analysis → initial test via LLM → FaMcts search loop with LlmActionApplier (D6) / LlmBugVerifier (D9/D10) → compile/run/coverage evaluation (TestPipeline) → artifacts. Includes the I16 error-driven API retrieval (SymbolApiRetriever) wired into fix prompts. Entry point: org.failmapper.app.FaMctsRunner.</description>
 
   <dependencies>
     <dependency>
@@ -37,6 +37,16 @@
     <dependency>
       <groupId>org.failmapper</groupId>
       <artifactId>failmapper-coverage</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.failmapper</groupId>
+      <artifactId>failmapper-search</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.failmapper</groupId>
+      <artifactId>failmapper-llm</artifactId>
       <version>${project.version}</version>
     </dependency>
     <dependency>

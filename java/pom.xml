@@ -20,6 +20,7 @@
     <module>failmapper-exec</module>
     <module>failmapper-coverage</module>
     <module>failmapper-search</module>
+    <module>failmapper-app</module>
   </modules>
 
   <properties>

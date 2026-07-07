@@ -27,6 +27,16 @@ public final class DeepSeekClient implements LlmClient {
     private static final int MAX_RETRIES = 3;
     private static final Duration TIMEOUT = Duration.ofSeconds(120);
 
+    /**
+     * Observability (M4 acceptance): when the {@code FM_LLM_VERBOSE} environment
+     * variable is set, every {@link #complete} call logs one start line and one
+     * outcome line to stderr, tagged with a process-wide call number. Off by
+     * default; never logs prompt or completion content, only sizes.
+     */
+    private static final boolean VERBOSE = System.getenv("FM_LLM_VERBOSE") != null;
+    private static final java.util.concurrent.atomic.AtomicLong CALLS =
+            new java.util.concurrent.atomic.AtomicLong();
+
     private final HttpClient http;
     private final ObjectMapper mapper = new ObjectMapper();
     private final String baseUrl;
@@ -67,6 +77,12 @@ public final class DeepSeekClient implements LlmClient {
 
     @Override
     public String complete(String systemPrompt, String userPrompt) {
+        long callNo = CALLS.incrementAndGet();
+        long startNanos = System.nanoTime();
+        if (VERBOSE) {
+            System.err.printf(java.util.Locale.ROOT, "[llm] call #%d model=%s prompt=%d chars%n",
+                    callNo, model, userPrompt == null ? 0 : userPrompt.length());
+        }
         ObjectNode body = mapper.createObjectNode();
         body.put("model", model);
         body.put("temperature", temperature);
@@ -102,6 +118,12 @@ public final class DeepSeekClient implements LlmClient {
                     JsonNode root = mapper.readTree(response.body());
                     JsonNode content = root.path("choices").path(0).path("message").path("content");
                     if (content.isTextual()) {
+                        if (VERBOSE) {
+                            System.err.printf(java.util.Locale.ROOT,
+                                    "[llm] call #%d ok reply=%d chars elapsed=%.1fs%n",
+                                    callNo, content.asText().length(),
+                                    (System.nanoTime() - startNanos) / 1e9);
+                        }
                         return content.asText();
                     }
                     throw new LlmException("unexpected response shape: " + abbreviate(response.body()));

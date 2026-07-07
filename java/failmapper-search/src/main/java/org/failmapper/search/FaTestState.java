@@ -162,6 +162,15 @@ public final class FaTestState {
      */
     public List<BusinessLogicIssue> businessLogicIssues = new ArrayList<>();
 
+    /**
+     * {@code self.uncovered_lines} ({@code test_state.py:91-93}, fed to expansion at
+     * {@code fa_mcts.py:2592}: {@code uncovered_data = {"uncovered_lines": ...} if
+     * hasattr(state, "uncovered_lines") else None}). {@code null} models the
+     * attribute-not-set state (no uncovered data offered to action generation); the
+     * evaluator layer fills it from real coverage.
+     */
+    public List<UncoveredLine> uncoveredLines = null;
+
     /** Python boundary-value entry dict {@code {"operator": op, "value": value.strip()}} ({@code test_state.py:275}). */
     public record BoundaryValueTested(String operator, String value) {
     }
