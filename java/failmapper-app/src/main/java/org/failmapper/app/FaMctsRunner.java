@@ -132,12 +132,10 @@ public final class FaMctsRunner {
                 DeepSeekClient.DEFAULT_BASE_URL, model, requireApiKey(),
                 config.temperature(), 8192);
 
-        // --- 4. Initial test via P12 ---
+        // --- 4. Initial test via P12 (I17: bounded re-sampling on extraction miss) ---
         String promptContent = initialPromptContent(sourceCode, classModel, fModel, failures);
         String initialPrompt = InitialTestPromptBuilder.build(promptContent);
-        String initialReply = client.complete(null, initialPrompt);
-        String initialTestCode = new CodeExtractor().extract(initialReply).orElseThrow(
-                () -> new IllegalStateException("no parseable Java in the initial LLM reply"));
+        String initialTestCode = generateInitialTest(client, initialPrompt);
 
         // --- 5. Evaluate the initial state ---
         Path workRoot = Files.createTempDirectory("fm-mcts-work");
@@ -187,6 +185,41 @@ public final class FaMctsRunner {
     // ------------------------------------------------------------------
     // Helpers
     // ------------------------------------------------------------------
+
+    /**
+     * I17 (contract §4, registered improvement): total sampling attempts for the
+     * initial generation — 1 call + up to 2 fresh re-samples. The Python baseline
+     * calls the API exactly once ({@code generate_initial_test},
+     * {@code feedback.py:502-568}) and needs no retry because its
+     * {@code extract_java_code} ({@code feedback.py:417-500}) cannot fail; the ported
+     * {@link CodeExtractor} fallback chain covers the same ground, and this bounded
+     * retry handles the residual case (empty or pure-prose reply) instead of crashing
+     * the run (M5_BENCHMARK §3.4).
+     */
+    static final int INITIAL_GENERATION_ATTEMPTS = 3;
+
+    /**
+     * Calls the LLM for the initial test, retrying with fresh sampling while
+     * {@link CodeExtractor} yields nothing; throws after
+     * {@value #INITIAL_GENERATION_ATTEMPTS} misses.
+     */
+    static String generateInitialTest(LlmClient client, String initialPrompt) {
+        CodeExtractor extractor = new CodeExtractor();
+        for (int attempt = 1; attempt <= INITIAL_GENERATION_ATTEMPTS; attempt++) {
+            String reply = client.complete(null, initialPrompt);
+            java.util.Optional<String> extracted = extractor.extract(reply);
+            if (extracted.isPresent()) {
+                return extracted.get();
+            }
+            System.err.printf(java.util.Locale.ROOT,
+                    "[runner] initial generation attempt %d/%d: no extractable Java in"
+                            + " the reply (%d chars)%n",
+                    attempt, INITIAL_GENERATION_ATTEMPTS,
+                    reply == null ? 0 : reply.length());
+        }
+        throw new IllegalStateException("no extractable Java in the initial LLM reply after "
+                + INITIAL_GENERATION_ATTEMPTS + " attempts (I17)");
+    }
 
     record Located(ModuleModel module, Path sourceFile) {
     }

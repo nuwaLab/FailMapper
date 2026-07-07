@@ -6,13 +6,18 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.failmapper.core.model.BuildModel;
 import org.failmapper.core.model.ModuleModel;
+import org.failmapper.llm.LlmClient;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-/** Static wiring helpers of {@link FaMctsRunner}: source location and the output guard. */
+/**
+ * Static wiring helpers of {@link FaMctsRunner}: source location, the output guard,
+ * and the I17 bounded initial-generation retry.
+ */
 class FaMctsRunnerHelpersTest {
 
     @TempDir
@@ -67,5 +72,55 @@ class FaMctsRunnerHelpersTest {
         // Outside any source root is fine (even inside the project, e.g. target/).
         FaMctsRunner.guardOutputDir(projectDir.resolve("target/failmapper"), buildModel);
         FaMctsRunner.guardOutputDir(Path.of("/tmp/somewhere-else"), buildModel);
+    }
+
+    // ------------------------------------------------------------------
+    // Layer-D regression for I17 / M5_BENCHMARK §3.4: the initial generation
+    // used to be a single LLM call + strict extraction + orElseThrow, which
+    // crashed 2 of 8 pilot cells. It now re-samples (fresh call) up to
+    // INITIAL_GENERATION_ATTEMPTS times before failing with a clear error.
+    // ------------------------------------------------------------------
+
+    @Test
+    void initialGenerationRetriesFreshSamplesUntilExtractionSucceeds() {
+        List<String> replies = List.of(
+                "I could not produce anything useful, sorry.",   // pure prose -> empty
+                "Nothing here either, my apologies.",            // pure prose -> empty
+                "```java\npublic class CalcTest {\n    void t() {}\n}\n```");
+        AtomicInteger calls = new AtomicInteger();
+        LlmClient stub = (system, user) -> replies.get(calls.getAndIncrement());
+
+        String code = FaMctsRunner.generateInitialTest(stub, "prompt");
+
+        assertThat(calls.get()).isEqualTo(3);
+        assertThat(code).contains("public class CalcTest");
+    }
+
+    @Test
+    void initialGenerationFailsClearlyAfterBoundedAttempts() {
+        AtomicInteger calls = new AtomicInteger();
+        LlmClient stub = (system, user) -> {
+            calls.incrementAndGet();
+            return "still nothing resembling a unit for you";
+        };
+
+        assertThatThrownBy(() -> FaMctsRunner.generateInitialTest(stub, "prompt"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("after " + FaMctsRunner.INITIAL_GENERATION_ATTEMPTS
+                        + " attempts");
+        assertThat(calls.get()).isEqualTo(FaMctsRunner.INITIAL_GENERATION_ATTEMPTS);
+    }
+
+    @Test
+    void initialGenerationDoesNotRetryOnFirstSuccess() {
+        AtomicInteger calls = new AtomicInteger();
+        LlmClient stub = (system, user) -> {
+            calls.incrementAndGet();
+            return "```java\npublic class CalcTest {\n}\n```";
+        };
+
+        FaMctsRunner.generateInitialTest(stub, "prompt");
+
+        assertThat(calls.get()).isEqualTo(1);
     }
 }
