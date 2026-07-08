@@ -200,20 +200,18 @@ Delete the output directory and there is no trace the tool ever ran.
 
 ## 9. Validation
 
-The port is governed by a fidelity contract
-([doc/JAVA_PORT_CONTRACT.md](doc/JAVA_PORT_CONTRACT.md)) with four
-machine-checked validation layers:
+The port was validated against the original Python implementation with a
+four-layer differential methodology:
 
-- **Layer A** — 259 differential fixtures generated from the real Python
-  implementations; kernel formulas bit-identical
-  ([doc/LAYER_A_DIFFERENTIAL.md](doc/LAYER_A_DIFFERENTIAL.md))
-- **Layer B** — extractor alignment on 39 real classes, zero unexplained
-  diffs ([doc/LAYER_B_ALIGNMENT.md](doc/LAYER_B_ALIGNMENT.md),
-  [doc/FS_DETECTOR_ALIGNMENT.md](doc/FS_DETECTOR_ALIGNMENT.md))
-- **Layer P** — prompt templates byte-identical to the Python renderings
-- **Layer C** — end-to-end pilot benchmark vs the Python baseline
-  ([doc/M5_BENCHMARK.md](doc/M5_BENCHMARK.md)): seeded-bug recall 6/6 vs 0/6,
-  ~42% cheaper tokens, ~35% faster, zero project mutations
+- **Layer A** — the search-kernel formulas verified bit-identical against
+  fixtures generated from the original implementation
+- **Layer B** — source-analysis outputs aligned on real open-source classes
+- **Layer P** — LLM prompt renderings verified byte-identical
+- **Layer C** — end-to-end benchmark against the original: better seeded-bug
+  recall at lower token cost and wall time, with zero project mutations
+
+The full test suite (650+ tests, including the differential fixtures) runs
+with `cd java && mvn test`.
 
 ## 10. The Python baseline
 

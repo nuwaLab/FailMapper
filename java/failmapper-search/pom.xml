@@ -12,7 +12,7 @@
 
   <artifactId>failmapper-search</artifactId>
   <name>FailMapper Search</name>
-  <description>Failure-aware MCTS algorithm kernel (milestone M3): UCB node policy, reward composition, selection/termination policies, state tracking (FaTestState, F9 pattern coverage, I3 branch coverage), strategy selection (D2/D3), action generation (D1), bug classification (D11), predicted-issue matching (D13), best-test update (D14) and verification heuristics (D10/F15), ported from fa_mcts.py / test_state.py / test_generation_strategies.py / verify_bug_with_llm.py per doc/JAVA_PORT_CONTRACT.md section 2. Any code here that looks wrong (non-standard UCB, wins*0.9 decay, confidence decay that gets overwritten) is load-bearing — see the contract's iron rule before touching.</description>
+  <description>Failure-aware MCTS algorithm kernel (milestone M3): UCB node policy, reward composition, selection/termination policies, state tracking (FaTestState, F9 pattern coverage, I3 branch coverage), strategy selection (D2/D3), action generation (D1), bug classification (D11), predicted-issue matching (D13), best-test update (D14) and verification heuristics (D10/F15), ported from fa_mcts.py / test_state.py / test_generation_strategies.py / verify_bug_with_llm.py. Any code here that looks wrong (non-standard UCB, wins*0.9 decay, confidence decay that gets overwritten) is load-bearing.</description>
 
   <dependencies>
     <dependency>

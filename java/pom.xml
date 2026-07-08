@@ -10,7 +10,7 @@
   <packaging>pom</packaging>
 
   <name>FailMapper (Java)</name>
-  <description>Failure-aware MCTS unit test generation framework — Java port. Port contract: doc/JAVA_PORT_CONTRACT.md</description>
+  <description>Failure-aware MCTS unit test generation framework — Java port.</description>
 
   <modules>
     <module>failmapper-core</module>

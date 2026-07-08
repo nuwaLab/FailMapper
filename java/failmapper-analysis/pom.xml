@@ -12,7 +12,7 @@
 
   <artifactId>failmapper-analysis</artifactId>
   <name>FailMapper Analysis</name>
-  <description>Source-code truth layer: JavaParser + SymbolSolver based extraction of class models and the failure model (port of extractor.py / class_analyzer.py semantics — see doc/JAVA_PORT_CONTRACT.md).</description>
+  <description>Source-code truth layer: JavaParser + SymbolSolver based extraction of class models and the failure model (port of extractor.py / class_analyzer.py semantics).</description>
 
   <dependencies>
     <dependency>
